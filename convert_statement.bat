@@ -6,17 +6,21 @@ echo ======================================================================
 echo.
 
 if "%~1"=="" (
-    echo No file dragged. Running automatic conversion on default accounting folder...
+    echo [No file dragged onto this script]
     echo.
-    python "%~dp0cli.py"
+    echo Options:
+    echo 1. Drag and drop any bank statement CSV file directly onto this icon.
+    echo 2. Launching visual GUI now...
+    echo.
+    python "%~dp0gui.py"
+    exit /b
 ) else (
-    echo Processing dropped file: %~1
+    echo Processing file: %~1
     echo.
     python "%~dp0cli.py" -i "%~1"
+    echo.
+    echo ======================================================================
+    echo Conversion complete!
+    echo ======================================================================
+    pause
 )
-
-echo.
-echo ======================================================================
-echo Conversion complete!
-echo ======================================================================
-pause

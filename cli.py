@@ -137,21 +137,13 @@ def main():
                 success_count += 1
         print(f"\n[DONE] Successfully converted {success_count} / {len(input_files)} statements.")
     else:
-        # Default run when double clicked or run without arguments: convert August and September in accounting folder
-        default_folder = Path(DEFAULT_TARGET_FOLDER)
-        if default_folder.exists():
-            print(f"[INFO] No arguments specified. Scanning default accounting folder:\n{default_folder}")
-            aug_file = default_folder / "Ogos 2026 transaction_history.csv"
-            sep_file = default_folder / "September 2026 transaction_history.csv"
-            
-            targets = [f for f in [aug_file, sep_file] if f.exists()]
-            if targets:
-                for t in targets:
-                    convert_single_file(converter, t, output_dir=default_folder, export_xlsx=True)
-            else:
-                parser.print_help()
-        else:
-            parser.print_help()
+        # Prompt user for input file or guide them to specify --input or use GUI
+        print("[INFO] No input file specified.")
+        print("Usage:")
+        print('  python cli.py -i "path\\to\\bank_statement.csv"')
+        print('  python cli.py -d "path\\to\\folder_with_csvs"')
+        print('  python gui.py   (to open the interactive visual tool)')
+        print("\nOr drag and drop any bank statement CSV onto convert_statement.bat")
 
 if __name__ == "__main__":
     main()
