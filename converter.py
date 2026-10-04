@@ -651,7 +651,7 @@ class BukkuStatementConverter:
         output_filepath = Path(output_filepath)
         output_filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_filepath, "w", newline="", encoding="utf-8") as f:
+        with open(output_filepath, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
             # Row 1 to 4: Metadata
             writer.writerow(["From Date", parsed_result.from_date, "", "", "", "", "", ""])
