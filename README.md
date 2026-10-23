@@ -1,40 +1,43 @@
 # Bukku Accounting Statement Converter
 
-**Version**: `v1.0.0`  
+**Version**: `v1.1.0`  
+**GitHub Repository**: [https://github.com/abidmasjuki/bukku-accounting-converter](https://github.com/abidmasjuki/bukku-accounting-converter)  
 **Purpose**: Automatically convert Bank Islam transaction history CSVs (or any bank statement CSV) into the official Bukku Accounting Bank Statement import template (`.csv` and `.xlsx`).
 
 ---
 
 ## 🌟 Key Features
 
-1. **Native Bank Islam & Multi-Bank Support**:
+1. **Online Web Application (Cloud Ready)**:
+   - Deployable directly to Render / Cloud Run / PaaS with pre-configured `render.yaml` and `Procfile`.
+   - Responsive web interface with drag-and-drop CSV upload, date format switcher, live reconciliation cards, and 1-click downloads.
+2. **Native Bank Islam & Multi-Bank Support**:
    - Handles Bank Islam web exports with metadata headers and footer totals.
    - Handles raw 13-column Bank Islam transaction lines.
    - Smart fallback engine for generic bank CSVs (Maybank, CIMB, RHB, Public Bank, etc.).
-2. **Formula & Formatting Sanitization**:
+3. **Bukku-Strict Date Formatting (No Timestamp)**:
+   - Automatically strips all timestamps from the `Date` column.
+   - Generates dates in `YYYY-MM-DD` (`Y-m-d`), strictly compliant with Bukku's backend validation rule (`The statement_lines.0.date does not match the format Y-m-d`).
+   - Supports `DD/MM/YYYY` without timestamp as an alternate display format.
+4. **Formula & Formatting Sanitization**:
    - Automatically removes Excel quotation wrappers like `="12029010086201"` -> `12029010086201`.
    - Cleanses debit/credit amount columns and balance flags (`+`/`-`).
-   - Normalizes dates into standard timestamp strings.
-3. **Automated Header & Metadata Generation**:
+5. **Automated Header & Metadata Generation**:
    - `From Date` & `To Date`: Computes calendar statement period (e.g. `01/08/2026` to `31/08/2026`).
    - `Account No`: Automatically detected and formatted.
    - `Closing Balance`: Extracted from the last transaction's balance column.
-4. **Reconciliation Audit Verification**:
+6. **Reconciliation Audit Verification**:
    - Automatically cross-checks transaction debits and credits against the bank statement's reported summary totals, ensuring 100% mathematical parity.
-5. **Dual Output Formats**:
-   - Generates both RFC-4180 standard **CSV** (for direct Bukku upload) and styled **Excel (.xlsx)**.
-6. **3 Ways to Run**:
-   - **Desktop GUI** (`run_gui.bat` or `python gui.py`): Interactive preview and 1-click export.
-   - **Drag-and-Drop** (`convert_statement.bat`): Drag any CSV file directly onto the bat icon.
-   - **CLI** (`cli.py`): For terminal users and automation scripts.
+7. **Dual Output Formats**:
+   - Generates both RFC-4180 standard **CSV** with UTF-8 BOM (for direct Bukku upload) and styled **Excel (.xlsx)**.
 
 ---
 
 ## 📁 Bukku Statement Format Mapping
 
-| Bukku Column | Source Field (Bank Islam) | Example Value |
+| Bukku Column | Source Field (Bank Islam) | Example Value (Y-m-d Format) |
 |---|---|---|
-| **Date** | Transaction Date | `03/08/2026 07:48:31` |
+| **Date** | Transaction Date | `2026-08-03` *(No timestamp, satisfies Bukku validator)* |
 | **Description** | Customer/EFT No (fallback to Txn Desc if blank) | `7-msb-locum-july26` / `RENTAL AUG` |
 | **Spent** | Debit Amount | `2000.00` |
 | **Received** | Credit Amount | `400.00` |
@@ -45,9 +48,19 @@
 
 ---
 
-## 🚀 How to Use
+## 🚀 How to Run
 
-### Option 1: Desktop GUI
+### Option 1: Online Web App (Cloud / Render)
+Run locally:
+```bash
+python app.py
+```
+Or deploy to Render using the included `render.yaml`:
+1. Connect your GitHub repository `https://github.com/abidmasjuki/bukku-accounting-converter` to Render.
+2. Select **Blueprint** or create a **Web Service** with:
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `gunicorn app:app --bind 0.0.0.0:$PORT`
+3. Access your web service online from anywhere via your Render URL!
 Double-click `run_gui.bat` or run:
 ```bash
 python gui.py

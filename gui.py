@@ -31,7 +31,8 @@ class BukkuConverterApp:
         # State variables
         self.current_file = None
         self.parsed_res = None
-        self.converter = BukkuStatementConverter(fill_empty_description=True, ref_style="standard")
+        self.date_format_var = tk.StringVar(value="ymd")
+        self.converter = BukkuStatementConverter(fill_empty_description=True, ref_style="standard", date_format="ymd")
 
         self.setup_ui()
 
@@ -87,7 +88,27 @@ class BukkuConverterApp:
         self.btn_batch.pack(side=tk.RIGHT)
 
         self.lbl_selected_file = ttk.Label(controls_frame, text="No file selected.", foreground="#4B5563")
-        self.lbl_selected_file.pack(fill=tk.X, pady=(8, 0))
+        self.lbl_selected_file.pack(fill=tk.X, pady=(8, 4))
+
+        opts_frame = ttk.Frame(controls_frame)
+        opts_frame.pack(fill=tk.X, pady=(2, 0))
+        ttk.Label(opts_frame, text="Transaction Date Format:").pack(side=tk.LEFT, padx=(0, 10))
+        rb_ymd = ttk.Radiobutton(
+            opts_frame,
+            text="YYYY-MM-DD (Bukku Y-m-d Required, No Timestamp)",
+            variable=self.date_format_var,
+            value="ymd",
+            command=self.on_date_format_change
+        )
+        rb_ymd.pack(side=tk.LEFT, padx=(0, 15))
+        rb_dmy = ttk.Radiobutton(
+            opts_frame,
+            text="DD/MM/YYYY (Template Format, No Timestamp)",
+            variable=self.date_format_var,
+            value="dmy",
+            command=self.on_date_format_change
+        )
+        rb_dmy.pack(side=tk.LEFT)
 
         # Statistics Summary Frame
         self.stats_frame = ttk.LabelFrame(self.root, text=" 2. Statement & Reconciliation Summary ", padding=10)
@@ -185,7 +206,13 @@ class BukkuConverterApp:
         if file_path:
             self.process_file(Path(file_path))
 
+    def on_date_format_change(self):
+        self.converter.date_format = self.date_format_var.get()
+        if self.current_file:
+            self.process_file(self.current_file)
+
     def process_file(self, path):
+        self.converter.date_format = self.date_format_var.get()
         self.current_file = path
         self.lbl_selected_file.config(text=f"Selected: {path}", foreground="#1F2937")
         self.lbl_status.config(text="Parsing statement...", foreground="#2563EB")

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.1.0] - 2026-10-24
+
+### Added
+- **Online Cloud Web Application**:
+  - Flask-based web server (`app.py`) for online cloud deployment.
+  - Mobile-responsive, modern frontend (`templates/index.html`) using Tailwind CSS.
+  - Live drag-and-drop CSV statement upload zone.
+  - Interactive reconciliation audit cards (Bank name, Account No, Statement period, Spent, Received, Closing Balance, Verification badge).
+  - Live table preview of converted Bukku statement rows.
+  - 1-click downloads for Bukku CSV (`.csv`) and Excel (`.xlsx`).
+  - Cloud deployment configuration: `render.yaml` and `Procfile` for Render deployment.
+  - Health check endpoint `/health`.
+- **Date Format Sanitization & Timestamp Stripping**:
+  - Enforced strict removal of all timestamps from the `Date` column across all parsers.
+  - Added support for `Y-m-d` (`YYYY-MM-DD`, e.g. `2026-08-03`), directly resolving Bukku's backend validation error: `The statement_lines.0.date does not match the format Y-m-d`.
+  - Added support for `dmy` (`DD/MM/YYYY`, e.g. `03/08/2026`) without timestamp to match original Bukku template sample text.
+  - Added `--date-format` flag to CLI (`cli.py`) and UI radio selector to desktop GUI (`gui.py`) and web app (`app.py`).
+  - Added in-memory parsing (`parse_content`) and streaming export methods (`get_bukku_csv_bytes`, `get_bukku_xlsx_bytes`) to `converter.py`.
+
+---
+
 ## [v1.0.0] - 2026-10-05
 
 ### Added

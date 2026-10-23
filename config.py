@@ -3,7 +3,7 @@ Bukku Accounting Converter - Configuration & Constants
 Version: 1.0.0
 """
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 APP_NAME = "Bukku Accounting Statement Converter"
 
 # Bukku CSV Standard Headers

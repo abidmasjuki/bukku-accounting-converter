@@ -40,6 +40,16 @@ class TestBukkuConverter(unittest.TestCase):
         self.assertEqual(res.closing_balance, "89069.17")
         self.assertEqual(summary["verification_status"], "PASS")
 
+        # Check date format without timestamp (Y-m-d)
+        self.assertEqual(res.transactions[0]["date"], "2026-08-03")
+        self.assertNotIn(":", res.transactions[0]["date"])
+
+        # Check DMY mode without timestamp
+        converter_dmy = BukkuStatementConverter(date_format="dmy")
+        res_dmy = converter_dmy.parse_file(aug_file)
+        self.assertEqual(res_dmy.transactions[0]["date"], "03/08/2026")
+        self.assertNotIn(":", res_dmy.transactions[0]["date"])
+
         # Test CSV export
         csv_out = self.test_output_dir / "test_bukku_august_2026.csv"
         self.converter.export_bukku_csv(res, csv_out)

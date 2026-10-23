@@ -47,6 +47,24 @@ def format_amount(val):
     except ValueError:
         return ""
 
+def format_date_for_bukku(val, date_format="ymd"):
+    """
+    Standardizes transaction date string to date-only without timestamp.
+    Bukku requires Y-m-d (YYYY-MM-DD, e.g. 2026-08-03) or d/m/Y without timestamp.
+    """
+    if isinstance(val, datetime):
+        dt = val
+    else:
+        dt = parse_date_flexible(val)
+    if not dt:
+        return clean_cell(val)
+    if str(date_format).lower() in ["ymd", "y-m-d", "iso"]:
+        return dt.strftime("%Y-%m-%d")
+    elif str(date_format).lower() in ["dmy", "d/m/y", "template"]:
+        return dt.strftime("%d/%m/%Y")
+    else:
+        return dt.strftime("%Y-%m-%d")
+
 def parse_date_flexible(date_str):
     """
     Tries multiple date formats commonly seen in Malaysian bank statements.
@@ -149,7 +167,7 @@ class StatementParseResult:
         return "PASS" if not issues else "; ".join(issues)
 
 class BukkuStatementConverter:
-    def __init__(self, fill_empty_description=True, ref_style="standard"):
+    def __init__(self, fill_empty_description=True, ref_style="standard", date_format="ymd"):
         """
         fill_empty_description: If true, when Customer/EFT No is blank (e.g. bank fee/profit),
                                fills Description with Transaction Description (e.g. 'CMS SERVICE CHARGE').
@@ -164,9 +182,13 @@ class BukkuStatementConverter:
                 Ref 2 = Payment Details
                 Ref 3 = Transaction Description
                 Ref 4 = Ref/Cheque No
+        date_format:
+            'ymd' (default): YYYY-MM-DD (e.g. 2026-08-03, strictly satisfies Bukku's 'Y-m-d' validator, without timestamp)
+            'dmy': DD/MM/YYYY (e.g. 03/08/2026, matches Bukku template sample, without timestamp)
         """
         self.fill_empty_description = fill_empty_description
         self.ref_style = ref_style
+        self.date_format = date_format
 
     def parse_file(self, filepath):
         """
@@ -181,7 +203,6 @@ class BukkuStatementConverter:
         for encoding in ["utf-8-sig", "utf-8", "cp1252", "latin-1"]:
             try:
                 with open(filepath, "r", encoding=encoding, errors="replace") as f:
-                    # Detect delimiter
                     sample = f.read(4096)
                     f.seek(0)
                     delimiter = "\t" if "\t" in sample and sample.count("\t") > sample.count(",") else ","
@@ -194,6 +215,41 @@ class BukkuStatementConverter:
 
         if not rows:
             raise ValueError(f"Could not read content or empty file: {filepath}")
+
+        return self.parse_rows(rows)
+
+    def parse_content(self, text_or_bytes):
+        """
+        Parses CSV statement from in-memory string or bytes.
+        """
+        if isinstance(text_or_bytes, bytes):
+            for encoding in ["utf-8-sig", "utf-8", "cp1252", "latin-1"]:
+                try:
+                    text = text_or_bytes.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                text = text_or_bytes.decode("utf-8", errors="replace")
+        else:
+            text = str(text_or_bytes)
+
+        lines = text.splitlines()
+        if not lines:
+            raise ValueError("Empty CSV content provided.")
+
+        sample = "\n".join(lines[:20])
+        delimiter = "\t" if "\t" in sample and sample.count("\t") > sample.count(",") else ","
+        reader = csv.reader(lines, delimiter=delimiter)
+        rows = [r for r in reader]
+        return self.parse_rows(rows)
+
+    def parse_rows(self, rows):
+        """
+        Routes parsed CSV rows to the appropriate bank statement parser.
+        """
+        if not rows:
+            raise ValueError("No rows found in statement data.")
 
         # Check if already a Bukku template CSV
         if len(rows) > 5 and clean_cell(rows[0][0]) == "From Date":
@@ -346,8 +402,10 @@ class BukkuStatementConverter:
                 ref3 = payment_details
                 ref4 = ref_cheque
 
+            clean_date = format_date_for_bukku(date_val, self.date_format)
+
             raw_txns.append({
-                "date": date_val,
+                "date": clean_date,
                 "description": desc,
                 "spent": debit_fmt,
                 "received": credit_fmt,
@@ -428,8 +486,10 @@ class BukkuStatementConverter:
                 ref3 = payment_details
                 ref4 = ref_cheque
 
+            clean_date = format_date_for_bukku(date_val, self.date_format)
+
             raw_txns.append({
-                "date": date_val,
+                "date": clean_date,
                 "description": desc,
                 "spent": debit_fmt,
                 "received": credit_fmt,
@@ -567,8 +627,10 @@ class BukkuStatementConverter:
             res.total_spent += debit_float
             res.total_received += credit_float
 
+            clean_date = format_date_for_bukku(date_str, self.date_format)
+
             raw_txns.append({
-                "date": date_str,
+                "date": clean_date,
                 "description": desc,
                 "spent": debit_fmt,
                 "received": credit_fmt,
@@ -631,8 +693,10 @@ class BukkuStatementConverter:
                 res.total_spent += s_fl
                 res.total_received += r_fl
 
+                clean_d = format_date_for_bukku(d, self.date_format)
+
                 res.transactions.append({
-                    "date": d,
+                    "date": clean_d,
                     "description": desc,
                     "spent": spent,
                     "received": rcvd,
@@ -644,58 +708,58 @@ class BukkuStatementConverter:
 
         return res
 
+    def get_bukku_csv_bytes(self, parsed_result):
+        """
+        Returns Bukku-compliant CSV data as bytes with UTF-8 BOM.
+        """
+        import io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["From Date", parsed_result.from_date, "", "", "", "", "", ""])
+        writer.writerow(["To Date", parsed_result.to_date, "", "", "", "", "", ""])
+        writer.writerow(["Account No", parsed_result.account_no, "", "", "", "", "", ""])
+        writer.writerow(["Closing Balance", parsed_result.closing_balance, "", "", "", "", "", ""])
+        writer.writerow(["", "", "", "", "", "", "", ""])
+        writer.writerow(BUKKU_COLUMNS)
+        for tx in parsed_result.transactions:
+            writer.writerow([
+                tx.get("date", ""),
+                tx.get("description", ""),
+                tx.get("spent", ""),
+                tx.get("received", ""),
+                tx.get("ref1", ""),
+                tx.get("ref2", ""),
+                tx.get("ref3", ""),
+                tx.get("ref4", "")
+            ])
+        return output.getvalue().encode("utf-8-sig")
+
     def export_bukku_csv(self, parsed_result, output_filepath):
         """
         Exports the parsed statement result into Bukku-compliant CSV format.
         """
         output_filepath = Path(output_filepath)
         output_filepath.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_filepath, "w", newline="", encoding="utf-8-sig") as f:
-            writer = csv.writer(f)
-            # Row 1 to 4: Metadata
-            writer.writerow(["From Date", parsed_result.from_date, "", "", "", "", "", ""])
-            writer.writerow(["To Date", parsed_result.to_date, "", "", "", "", "", ""])
-            writer.writerow(["Account No", parsed_result.account_no, "", "", "", "", "", ""])
-            writer.writerow(["Closing Balance", parsed_result.closing_balance, "", "", "", "", "", ""])
-            # Row 5: Empty line
-            writer.writerow(["", "", "", "", "", "", "", ""])
-            # Row 6: Bukku Columns
-            writer.writerow(BUKKU_COLUMNS)
-            # Row 7+: Transactions
-            for tx in parsed_result.transactions:
-                writer.writerow([
-                    tx.get("date", ""),
-                    tx.get("description", ""),
-                    tx.get("spent", ""),
-                    tx.get("received", ""),
-                    tx.get("ref1", ""),
-                    tx.get("ref2", ""),
-                    tx.get("ref3", ""),
-                    tx.get("ref4", "")
-                ])
-
+        csv_bytes = self.get_bukku_csv_bytes(parsed_result)
+        with open(output_filepath, "wb") as f:
+            f.write(csv_bytes)
         return str(output_filepath)
 
-    def export_bukku_xlsx(self, parsed_result, output_filepath):
+    def get_bukku_xlsx_bytes(self, parsed_result):
         """
-        Exports the parsed statement result into Bukku-compliant Excel (.xlsx) format.
-        Requires openpyxl.
+        Returns Bukku-compliant Excel data as io.BytesIO.
         """
+        import io
         try:
             import openpyxl
-            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.styles import Font, PatternFill, Alignment
         except ImportError:
-            raise ImportError("openpyxl is required for Excel export. Please install openpyxl or export as CSV.")
-
-        output_filepath = Path(output_filepath)
-        output_filepath.parent.mkdir(parents=True, exist_ok=True)
+            raise ImportError("openpyxl is required for Excel export.")
 
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Bank Statement"
 
-        # Metadata rows
         meta_data = [
             ("From Date", parsed_result.from_date),
             ("To Date", parsed_result.to_date),
@@ -712,28 +776,22 @@ class BukkuStatementConverter:
             ws.cell(row=r_i, column=1, value=k).font = bold_font
             ws.cell(row=r_i, column=2, value=v).font = regular_font
 
-        # Row 5 is blank
-
-        # Row 6: Column Headers
         for c_i, col_name in enumerate(BUKKU_COLUMNS, start=1):
             cell = ws.cell(row=6, column=c_i, value=col_name)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center" if c_i in [1, 3, 4] else "left")
 
-        # Row 7+: Transactions
         for row_idx, tx in enumerate(parsed_result.transactions, start=7):
             ws.cell(row=row_idx, column=1, value=tx.get("date", "")).font = regular_font
             ws.cell(row=row_idx, column=2, value=tx.get("description", "")).font = regular_font
-            
-            # Spent
+
             spent_str = tx.get("spent", "")
             cell_spent = ws.cell(row=row_idx, column=3, value=float(spent_str) if spent_str else "")
             cell_spent.font = regular_font
             if spent_str:
                 cell_spent.number_format = '#,##0.00'
 
-            # Received
             rcvd_str = tx.get("received", "")
             cell_rcvd = ws.cell(row=row_idx, column=4, value=float(rcvd_str) if rcvd_str else "")
             cell_rcvd.font = regular_font
@@ -745,7 +803,6 @@ class BukkuStatementConverter:
             ws.cell(row=row_idx, column=7, value=tx.get("ref3", "")).font = regular_font
             ws.cell(row=row_idx, column=8, value=tx.get("ref4", "")).font = regular_font
 
-        # Auto-adjust column widths
         for col in ws.columns:
             max_len = 0
             col_letter = openpyxl.utils.get_column_letter(col[0].column)
@@ -755,5 +812,18 @@ class BukkuStatementConverter:
                     max_len = len(val_str)
             ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
-        wb.save(output_filepath)
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        return buf
+
+    def export_bukku_xlsx(self, parsed_result, output_filepath):
+        """
+        Exports the parsed statement result into Bukku-compliant Excel (.xlsx) format.
+        """
+        output_filepath = Path(output_filepath)
+        output_filepath.parent.mkdir(parents=True, exist_ok=True)
+        buf = self.get_bukku_xlsx_bytes(parsed_result)
+        with open(output_filepath, "wb") as f:
+            f.write(buf.read())
         return str(output_filepath)

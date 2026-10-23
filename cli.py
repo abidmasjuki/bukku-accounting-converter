@@ -26,11 +26,18 @@ def get_output_filename(parsed_res, input_path, extension="csv"):
     
     label = ""
     if parsed_res.from_date:
-        parts = parsed_res.from_date.split("/")
-        if len(parts) == 3:
-            m = int(parts[1])
-            y = parts[2]
-            label = f"{month_names_en.get(m, str(m))} {y}"
+        if "/" in parsed_res.from_date:
+            parts = parsed_res.from_date.split("/")
+            if len(parts) == 3:
+                m = int(parts[1])
+                y = parts[2]
+                label = f"{month_names_en.get(m, str(m))} {y}"
+        elif "-" in parsed_res.from_date:
+            parts = parsed_res.from_date.split("-")
+            if len(parts) == 3:
+                m = int(parts[1])
+                y = parts[0]
+                label = f"{month_names_en.get(m, str(m))} {y}"
 
     if not label:
         label = stem
@@ -101,6 +108,8 @@ def main():
     parser.add_argument("--no-fill-empty-desc", action="store_true", help="Leave Description blank if Customer/EFT No is empty")
     parser.add_argument("--ref-style", choices=["standard", "party_first"], default="standard",
                         help="Reference column ordering style (default: standard)")
+    parser.add_argument("--date-format", choices=["ymd", "dmy"], default="ymd",
+                        help="Transaction date format: 'ymd' (YYYY-MM-DD, Bukku validator compliant) or 'dmy' (DD/MM/YYYY). Without timestamp. Default: ymd")
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
     args = parser.parse_args()
@@ -109,7 +118,8 @@ def main():
 
     converter = BukkuStatementConverter(
         fill_empty_description=not args.no_fill_empty_desc,
-        ref_style=args.ref_style
+        ref_style=args.ref_style,
+        date_format=args.date_format
     )
 
     if args.input:
