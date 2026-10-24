@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.2.0] - 2026-10-24
+
+### Fixed
+- **Bank Islam Raw Format (Type B) Support in Web App**: Added full support in `index.html` for headerless 13-column Bank Islam statements (e.g. `Ogos 2026 transaction_history (2).csv`), restoring instant extraction of 43 transactions, RM 20,967.04 debit, and RM 58,108.93 credit.
+- **Process & Preview Statement Button Responsiveness**: Resolved bug where files dropped via drag-and-drop did not populate `fileInput.files`, causing the button click handler to silently abort.
+- **Immediate 0ms Visual Feedback Rule**: Added frame-0 active state (`Processing Statement...`) and dynamic auto-reconversion whenever options (Date Format, Ref Style, Fill Description) are changed without needing file re-upload.
+- **Bukku Reconciliation Acceptance Verification**: Set `YYYY-MM-DD (Bukku Y-m-d)` as the prominent recommended default with validation badge, warning user if switching to `DD/MM/YYYY` that Bukku's statement importer requires `Y-m-d`.
+- **Automated End-to-End Verification**: Added Playwright test suite (`test_playwright_e2e.py`) verifying authentic DOM rendering, reconciliation metrics match, and dynamic date format toggling.
+
+---
+
 ## [v1.1.0] - 2026-10-24
 
 ### Added
